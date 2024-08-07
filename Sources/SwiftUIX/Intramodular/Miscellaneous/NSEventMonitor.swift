@@ -21,6 +21,34 @@ public protocol _NSEventMonitorType {
         matching: NSEvent.EventTypeMask,
         handleEvent: @escaping (NSEvent) -> NSEvent?
     ) throws
+    
+    func start() throws
+    func stop() throws
+}
+
+@available(macOS 12.0, *)
+extension _NSEventMonitorType {
+    public init(
+        matching shortcuts: [KeyboardShortcut],
+        context: NSEventMonitor.Context = .local,
+        perform action: @escaping (KeyboardShortcut) -> Void
+    ) throws {
+        let shortcuts = Set(shortcuts)
+        
+        try self.init(context: context, matching: [.keyDown]) { event -> NSEvent? in
+            guard let shortcut = KeyboardShortcut(from: event) else {
+                return event
+            }
+            
+            guard shortcuts.contains(shortcut) else {
+                return event
+            }
+            
+            _ = action(shortcut)
+            
+            return nil
+        }
+    }
 }
 
 public final class NSEventMonitor: _NSEventMonitorType {
@@ -31,6 +59,13 @@ public final class NSEventMonitor: _NSEventMonitorType {
     private var monitor: Any?
     
     public var handleEvent: (NSEvent) -> NSEvent? = { $0 }
+    
+    private enum State {
+        case active
+        case inactive
+    }
+    
+    @Published private var state: State = .active
     
     public init(
         context: Context,
@@ -44,7 +79,15 @@ public final class NSEventMonitor: _NSEventMonitorType {
         start()
     }
     
-    private func start() {
+    public func start() {
+        guard monitor == nil else {
+            return
+        }
+        
+        defer {
+            state = .active
+        }
+        
         switch self.context {
             case .local:
                 monitor = NSEvent.addLocalMonitorForEvents(matching: eventTypeMask) { [weak self] event in
@@ -63,12 +106,18 @@ public final class NSEventMonitor: _NSEventMonitorType {
         }
     }
     
-    private func stop() {
-        if let monitor = monitor {
-            NSEvent.removeMonitor(monitor)
-            
-            self.monitor = nil
+    public func stop() {
+        guard let monitor = monitor else {
+            return
         }
+        
+        defer {
+            state = .inactive
+        }
+        
+        NSEvent.removeMonitor(monitor)
+        
+        self.monitor = nil
     }
     
     deinit {
@@ -139,7 +188,7 @@ extension View {
         }
     }
     
-    @available( macOS 12.0, *)
+    @available(macOS 12.0, *)
     public func onAppKitKeyboardShortcutEvents(
         _ shortcuts: [KeyboardShortcut],
         context: NSEventMonitor.Context = .local,
@@ -210,17 +259,32 @@ private struct _AttachNSEventMonitor: ViewModifier {
     }
     
     func body(content: Content) -> some View {
-        content.background {
-            PerformAction {
-                self.handleEventTrampoline = handleEvent
-                
-                if self.eventMonitor == nil {
-                    self.eventMonitor = try! eventMonitorType.init(context: context, matching: eventMask, handleEvent: {
-                        self.handleEventTrampoline($0)
-                    })
+        content
+            .background {
+                PerformAction(deferred: false) {
+                    self.handleEventTrampoline = handleEvent
+                    
+                    if self.eventMonitor == nil {
+                        self.eventMonitor = try! eventMonitorType.init(context: context, matching: eventMask, handleEvent: {
+                            self.handleEventTrampoline($0)
+                        })
+                    }
                 }
             }
-        }
+            .onAppear {
+                do {
+                    try self.eventMonitor?.start()
+                } catch {
+                    assertionFailure(String(describing: error))
+                }
+            }
+            .onDisappear {
+                do {
+                    try self.eventMonitor?.stop()
+                } catch {
+                    assertionFailure(String(describing: error))
+                }
+            }
     }
 }
 

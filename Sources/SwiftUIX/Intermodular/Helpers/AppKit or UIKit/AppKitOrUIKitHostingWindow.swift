@@ -10,7 +10,6 @@ import SwiftUI
 
 #if os(macOS)
 public protocol AppKitOrUIKitHostingWindowProtocol: AppKitOrUIKitWindow, NSWindowDelegate {
-    @_spi(Internal)
     var _SwiftUIX_hostingPopoverPreferences: _AppKitOrUIKitHostingPopoverPreferences { get set }
     var _SwiftUIX_windowConfiguration: _AppKitOrUIKitHostingWindowConfiguration { get set }
     
@@ -21,10 +20,8 @@ public protocol AppKitOrUIKitHostingWindowProtocol: AppKitOrUIKitWindow, NSWindo
     func show()
     func hide()
 
-    @_spi(Internal)
     func refreshPosition()
-    @_spi(Internal)
-    func setPosition(_ position: _CoordinateSpaceRelative<CGPoint>)
+    func setPosition(_ position: _CoordinateSpaceRelative<CGPoint>?)
     
     func bringToFront()
     func moveToBack()
@@ -42,35 +39,45 @@ public protocol AppKitOrUIKitHostingWindowProtocol: AppKitOrUIKitWindow {
     func show()
     func hide()
 
-    @_spi(Internal)
     func refreshPosition()
-    @_spi(Internal)
-    func setPosition(_ position: _CoordinateSpaceRelative<CGPoint>)
+    func setPosition(_ position: _CoordinateSpaceRelative<CGPoint>?)
     
     func bringToFront()
     func moveToBack()
 }
 #endif
 
-@_spi(Internal)
 extension AppKitOrUIKitHostingWindowProtocol {
     public func refreshPosition() {
         fatalError("unimplemented")
     }
-    
+}
+
+#if !os(macOS)
+extension AppKitOrUIKitHostingWindowProtocol {
     public func setPosition(_ position: _CoordinateSpaceRelative<CGPoint>) {
         fatalError("unimplemented")
     }
 }
+#endif
 
 public struct _AppKitOrUIKitHostingWindowConfiguration: Equatable {
     public var style: _WindowStyle = .default
     public var canBecomeKey: Bool?
-    public var allowTouchesToPassThrough: Bool = false
-    @_spi(Internal)
+    public var allowTouchesToPassThrough: Bool?
     public var windowPosition: _CoordinateSpaceRelative<CGPoint>?
     public var isTitleBarHidden: Bool?
     public var backgroundColor: Color?
+    public var preferredColorScheme: ColorScheme?
+    
+    public mutating func mergeInPlace(with other: Self) {
+        self.canBecomeKey = other.canBecomeKey ?? self.canBecomeKey
+        self.allowTouchesToPassThrough = other.allowTouchesToPassThrough ?? self.allowTouchesToPassThrough
+        self.windowPosition = other.windowPosition ?? self.windowPosition
+        self.isTitleBarHidden = other.isTitleBarHidden ?? self.isTitleBarHidden
+        self.backgroundColor = other.backgroundColor ?? self.backgroundColor
+        self.preferredColorScheme = other.preferredColorScheme ?? self.preferredColorScheme
+    }
 }
 
 @available(macCatalystApplicationExtension, unavailable)
@@ -90,7 +97,6 @@ open class AppKitOrUIKitHostingWindow<Content: View>: AppKitOrUIKitWindow, AppKi
     private var _contentWindowController: NSWindowController?
     #endif
     
-    @_spi(Internal)
     public var _SwiftUIX_hostingPopoverPreferences: _AppKitOrUIKitHostingPopoverPreferences = nil
 
     /// The window's preferred configuration.
@@ -116,7 +122,9 @@ open class AppKitOrUIKitHostingWindow<Content: View>: AppKitOrUIKitWindow, AppKi
             }
             #elseif os(macOS)
             if oldValue.allowTouchesToPassThrough != _SwiftUIX_windowConfiguration.allowTouchesToPassThrough {
-                ignoresMouseEvents = oldValue.allowTouchesToPassThrough
+                if let allowTouchesToPassThrough = _SwiftUIX_windowConfiguration.allowTouchesToPassThrough {
+                    ignoresMouseEvents = allowTouchesToPassThrough
+                }
             }
             #endif
             
@@ -129,6 +137,10 @@ open class AppKitOrUIKitHostingWindow<Content: View>: AppKitOrUIKitWindow, AppKi
         get {
             super.alphaValue
         } set {
+            guard newValue != super.alphaValue else {
+                return
+            }
+            
             super.alphaValue = newValue
             
             if newValue == 0.0 {
@@ -463,7 +475,7 @@ open class AppKitOrUIKitHostingWindow<Content: View>: AppKitOrUIKitWindow, AppKi
     
     #if os(iOS)
     override public func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        guard _SwiftUIX_windowConfiguration.allowTouchesToPassThrough else {
+        guard (_SwiftUIX_windowConfiguration.allowTouchesToPassThrough ?? false) else {
             return super.hitTest(point, with: event)
         }
         
@@ -558,7 +570,13 @@ open class AppKitOrUIKitHostingWindow<Content: View>: AppKitOrUIKitWindow, AppKi
                 self.applyPreferredConfiguration()
             }
         } else {
+            self.applyPreferredConfiguration()
+
             contentWindowController.showWindow(self)
+            
+            DispatchQueue.main.async {
+                self.applyPreferredConfiguration()
+            }
         }
         #else
         isHidden = false
@@ -637,7 +655,6 @@ open class AppKitOrUIKitHostingWindow<Content: View>: AppKitOrUIKitWindow, AppKi
     }
 }
 
-@_spi(Internal)
 extension AppKitOrUIKitHostingWindow {
     public func refreshPosition() {
         guard let windowPosition = _SwiftUIX_windowConfiguration.windowPosition else {
@@ -736,10 +753,13 @@ extension View {
 @available(iOSApplicationExtension, unavailable)
 @available(tvOSApplicationExtension, unavailable)
 extension AppKitOrUIKitHostingWindow {
-    @_spi(Internal)
     public func setPosition(
-        _ position: _CoordinateSpaceRelative<CGPoint>
+        _ position: _CoordinateSpaceRelative<CGPoint>?
     ) {
+        guard let position else {
+            return
+        }
+        
         if _SwiftUIX_windowConfiguration.windowPosition != position {
             _SwiftUIX_windowConfiguration.windowPosition = position
         }
@@ -762,10 +782,13 @@ extension AppKitOrUIKitHostingWindow {
 @available(iOSApplicationExtension, unavailable)
 @available(tvOSApplicationExtension, unavailable)
 extension AppKitOrUIKitHostingWindow {
-    @_spi(Internal)
     public func setPosition(
-        _ position: _CoordinateSpaceRelative<CGPoint>
+        _ position: _CoordinateSpaceRelative<CGPoint>?
     ) {
+        guard let position else {
+            return
+        }
+
         // contentView?._SwiftUIX_setDebugBackgroundColor(NSColor.red)
         
         // This isn't a `guard` because we do not want to exit early. Even if the window position is the same, the actual desired position may have changed (window position can be relative).
