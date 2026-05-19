@@ -25,9 +25,13 @@ extension NSButton.ControlSize {
                 } else {
                     self = .regular
                 }
+            case .extraLarge:
+                if #available(macOS 26.0, *) {
+                    self = .extraLarge
+                } else {
+                    self = .regular
+                }
             default:
-                assertionFailure()
-                
                 self = .regular
         }
     }
