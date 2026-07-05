@@ -15,12 +15,12 @@ public enum TransitionDirection: Hashable {
         case backward
         case forward
     }
-    
+
     public var activePageTransitionDirection: TransitionDirection?
     public var activePageTransitionProgress: Double = 0.0
-    
+
     public init() {
-        
+
     }
 }
 
@@ -36,7 +36,7 @@ public struct PaginationView<Page: View>: View {
     let transitionStyle: UIPageViewController.TransitionStyle
     @usableFromInline
     let showsIndicators: Bool
-    
+
     @usableFromInline
     var pageIndicatorAlignment: Alignment
     @usableFromInline
@@ -47,20 +47,19 @@ public struct PaginationView<Page: View>: View {
     var initialPageIndex: Int?
     @usableFromInline
     var currentPageIndex: Binding<Int>?
-    
+
     /// The current page index internally used by `PaginationView`.
     /// Never access this directly, it is marked public as a workaround to a compiler bug.
-    @inlinable
     @State public var _currentPageIndex = 0
-    
+
     /// Never access this directly, it is marked public as a workaround to a compiler bug.
     @inlinable
     @DelayedState public var _progressionController: ProgressionController?
-    
+
     private var _scrollViewConfiguration: CocoaScrollViewConfiguration<AnyView> = nil
-    
+
     var paginationState: Binding<PaginationState>?
-    
+
     @inlinable
     public init(
         content: AnyForEach<Page>,
@@ -72,7 +71,7 @@ public struct PaginationView<Page: View>: View {
         self.axis = axis
         self.transitionStyle = transitionStyle
         self.showsIndicators = showsIndicators
-        
+
         switch axis {
             case .horizontal:
                 self.pageIndicatorAlignment = .center
@@ -80,7 +79,7 @@ public struct PaginationView<Page: View>: View {
                 self.pageIndicatorAlignment = .leading
         }
     }
-    
+
     @inlinable
     public init<Data, ID>(
         content: ForEach<Data, ID, Page>,
@@ -95,7 +94,7 @@ public struct PaginationView<Page: View>: View {
             showsIndicators: showsIndicators
         )
     }
-    
+
     public var body: some View {
         if content.isEmpty {
             EmptyView()
@@ -116,7 +115,7 @@ public struct PaginationView<Page: View>: View {
                     currentPageIndex: currentPageIndex ?? $_currentPageIndex,
                     progressionController: $_progressionController
                 )
-                
+
                 if showsIndicators && (axis == .vertical || pageIndicatorAlignment != .center) {
                     PageControl(
                         numberOfPages: content.count,
@@ -153,7 +152,7 @@ extension PaginationView {
             showsIndicators: showsIndicators
         )
     }
-    
+
     @inlinable
     public init<Data, ID>(
         axis: Axis = .horizontal,
@@ -168,7 +167,7 @@ extension PaginationView {
             showsIndicators: showsIndicators
         )
     }
-    
+
     @inlinable
     public init<Data, ID>(
         axis: Axis = .horizontal,
@@ -200,7 +199,7 @@ extension PaginationView {
             showsIndicators: showsIndicators
         )
     }
-    
+
     @_disfavoredOverload
     @inlinable
     public init(
@@ -216,7 +215,7 @@ extension PaginationView {
             showsIndicators: showsIndicators
         )
     }
-    
+
     @inlinable
     public init<C0: View, C1: View>(
         axis: Axis = .horizontal,
@@ -225,7 +224,7 @@ extension PaginationView {
         @ViewBuilder content: () -> TupleView<(C0, C1)>
     ) where Page == AnyView {
         let content = content()
-        
+
         self.init(
             pages: [
                 content.value.0.eraseToAnyView(),
@@ -236,7 +235,7 @@ extension PaginationView {
             showsIndicators: showsIndicators
         )
     }
-    
+
     @inlinable
     public init<C0: View, C1: View, C2: View>(
         axis: Axis = .horizontal,
@@ -245,7 +244,7 @@ extension PaginationView {
         @ViewBuilder content: () -> TupleView<(C0, C1, C2)>
     ) where Page == AnyView {
         let content = content()
-        
+
         self.init(
             pages: [
                 content.value.0.eraseToAnyView(),
@@ -257,7 +256,7 @@ extension PaginationView {
             showsIndicators: showsIndicators
         )
     }
-    
+
     @inlinable
     public init<C0: View, C1: View, C2: View, C3: View>(
         axis: Axis = .horizontal,
@@ -266,7 +265,7 @@ extension PaginationView {
         @ViewBuilder content: () -> TupleView<(C0, C1, C2, C3)>
     ) where Page == AnyView {
         let content = content()
-        
+
         self.init(
             pages: [
                 content.value.0.eraseToAnyView(),
@@ -279,7 +278,7 @@ extension PaginationView {
             showsIndicators: showsIndicators
         )
     }
-    
+
     @inlinable
     public init<C0: View, C1: View, C2: View, C3: View, C4: View>(
         axis: Axis = .horizontal,
@@ -288,7 +287,7 @@ extension PaginationView {
         @ViewBuilder content: () -> TupleView<(C0, C1, C2, C3, C4)>
     ) where Page == AnyView {
         let content = content()
-        
+
         self.init(
             pages: [
                 content.value.0.eraseToAnyView(),
@@ -302,7 +301,7 @@ extension PaginationView {
             showsIndicators: showsIndicators
         )
     }
-    
+
     @inlinable
     public init<C0: View, C1: View, C2: View, C3: View, C4: View, C5: View>(
         axis: Axis = .horizontal,
@@ -311,7 +310,7 @@ extension PaginationView {
         @ViewBuilder content: () -> TupleView<(C0, C1, C2, C3, C4, C5)>
     ) where Page == AnyView {
         let content = content()
-        
+
         self.init(
             pages: [
                 content.value.0.eraseToAnyView(),
@@ -326,7 +325,7 @@ extension PaginationView {
             showsIndicators: showsIndicators
         )
     }
-    
+
     @inlinable
     public init<C0: View, C1: View, C2: View, C3: View, C4: View, C5: View, C6: View>(
         axis: Axis = .horizontal,
@@ -335,7 +334,7 @@ extension PaginationView {
         @ViewBuilder content: () -> TupleView<(C0, C1, C2, C3, C4, C5, C6)>
     ) where Page == AnyView {
         let content = content()
-        
+
         self.init(
             pages: [
                 content.value.0.eraseToAnyView(),
@@ -351,7 +350,7 @@ extension PaginationView {
             showsIndicators: showsIndicators
         )
     }
-    
+
     @inlinable
     public init<C0: View, C1: View, C2: View, C3: View, C4: View, C5: View, C6: View, C7: View>(
         axis: Axis = .horizontal,
@@ -360,7 +359,7 @@ extension PaginationView {
         @ViewBuilder content: () -> TupleView<(C0, C1, C2, C3, C4, C5, C6, C7)>
     ) where Page == AnyView {
         let content = content()
-        
+
         self.init(
             pages: [
                 content.value.0.eraseToAnyView(),
@@ -377,7 +376,7 @@ extension PaginationView {
             showsIndicators: showsIndicators
         )
     }
-    
+
     @inlinable
     public init<C0: View, C1: View, C2: View, C3: View, C4: View, C5: View, C6: View, C7: View, C8: View>(
         axis: Axis = .horizontal,
@@ -386,7 +385,7 @@ extension PaginationView {
         @ViewBuilder content: () -> TupleView<(C0, C1, C2, C3, C4, C5, C6, C7, C8)>
     ) where Page == AnyView {
         let content = content()
-        
+
         self.init(
             pages: [
                 content.value.0.eraseToAnyView(),
@@ -404,7 +403,7 @@ extension PaginationView {
             showsIndicators: showsIndicators
         )
     }
-    
+
     @inlinable
     public init<C0: View, C1: View, C2: View, C3: View, C4: View, C5: View, C6: View, C7: View, C8: View, C9: View>(
         axis: Axis = .horizontal,
@@ -413,7 +412,7 @@ extension PaginationView {
         @ViewBuilder content: () -> TupleView<(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9)>
     ) where Page == AnyView {
         let content = content()
-        
+
         self.init(
             pages: [
                 content.value.0.eraseToAnyView(),
@@ -441,12 +440,12 @@ extension PaginationView {
     public func pageIndicatorAlignment(_ alignment: Alignment) -> Self {
         then({ $0.pageIndicatorAlignment = alignment })
     }
-    
+
     @inlinable
     public func interPageSpacing(_ interPageSpacing: CGFloat) -> Self {
         then({ $0.interPageSpacing = interPageSpacing })
     }
-    
+
     @inlinable
     public func cyclesPages(_ cyclesPages: Bool) -> Self {
         then({ $0.cyclesPages = cyclesPages })
@@ -458,7 +457,7 @@ extension PaginationView {
     public func initialPageIndex(_ initialPageIndex: Int) -> Self {
         then({ $0.initialPageIndex = initialPageIndex })
     }
-    
+
     @inlinable
     public func currentPageIndex(_ currentPageIndex: Binding<Int>) -> Self {
         then({ $0.currentPageIndex = currentPageIndex })

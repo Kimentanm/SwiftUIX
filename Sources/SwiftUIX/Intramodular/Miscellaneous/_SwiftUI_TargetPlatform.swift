@@ -226,7 +226,7 @@ extension _TargetPlatformConditionalModifiable where Root: Scene, Platform == _S
         _ mode: SpecificTypes.NavigationBarItemTitleDisplayMode
     ) -> _TargetPlatformConditionalModifiable<some View, Platform> {
 #if os(iOS)
-        _TargetPlatformConditionalModifiable<_, Platform> {
+        _TargetPlatformConditionalModifiable<_, Platform>(viewBuilder: {
             switch mode {
                 case .automatic:
                     root.navigationBarTitleDisplayMode(.automatic)
@@ -235,7 +235,7 @@ extension _TargetPlatformConditionalModifiable where Root: Scene, Platform == _S
                 case .large:
                     root.navigationBarTitleDisplayMode(.inline)
             }
-        }
+        })
 #else
         self
 #endif
