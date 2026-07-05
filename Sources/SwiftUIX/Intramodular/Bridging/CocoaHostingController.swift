@@ -8,7 +8,8 @@ import SwiftUI
 
 #if os(iOS) || os(macOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
 
-public struct CocoaHostingControllerConfiguration {
+@_documentation(visibility: internal)
+public struct CocoaHostingControllerOrViewConfiguration {
     var _isMeasuringSize: Bool = false
     
     lazy var _measuredSizePublisher = {
@@ -21,8 +22,9 @@ public struct CocoaHostingControllerConfiguration {
     var preferenceValueObservers: [AnyViewModifier] = []
 }
 
+@_documentation(visibility: internal)
 open class CocoaHostingController<Content: View>: AppKitOrUIKitHostingController<CocoaHostingControllerContent<Content>>, _CocoaHostingControllerOrView, CocoaViewController {
-    public var _configuration: CocoaHostingControllerConfiguration = .init() {
+    public var _configuration: CocoaHostingControllerOrViewConfiguration = .init() {
         didSet {
             rootView.parentConfiguration = _configuration
         }
@@ -69,9 +71,28 @@ open class CocoaHostingController<Content: View>: AppKitOrUIKitHostingController
         }
     }
     
+    public func updateHostedView(
+        _ view: Content,
+        context: _CocoaSwiftUIViewHostingUpdateContext?
+    ) {
+        guard let context else {
+            rootView.content = view
+            
+            return
+        }
+        
+        withCriticalScope(context.cocoaHostingViewConfigurationFlags) {
+            rootView.content = view
+        }
+    }
+
     #if os(iOS)
     open override var canBecomeFirstResponder: Bool {
         _canBecomeFirstResponder ?? super.canBecomeFirstResponder
+    }
+    
+    open var acceptsFirstResponder: Bool {
+        self.canBecomeFirstResponder
     }
     #endif
 
@@ -296,6 +317,8 @@ open class CocoaHostingController<Content: View>: AppKitOrUIKitHostingController
             
             _didResizeParentWindowOnce = true
         }
+        #else
+        let _: Void = ();
         #endif
     }
 }

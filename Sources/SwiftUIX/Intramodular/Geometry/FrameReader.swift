@@ -5,6 +5,7 @@
 import Swift
 import SwiftUI
 
+@_documentation(visibility: internal)
 public struct FrameReaderProxy {
     /// Data from the preference key `_NamedViewDescription.PreferenceKey`.
     var preferenceData: [AnyHashable: _NamedViewDescription] = [:]
@@ -75,6 +76,7 @@ public struct FrameReaderProxy {
 }
 
 @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+@_documentation(visibility: internal)
 public struct FrameReader<Content: View>: View {
     @Namespace var namespace
     
@@ -184,28 +186,12 @@ extension View {
         _ shouldMeasure: Bool = true,
         into binding: Binding<CGSize?>
     ) -> some View {
-        let binding = binding.removeDuplicates()
-        
-        self.background {
-            if shouldMeasure {
-                GeometryReader { proxy in
-                    Color.clear
-                        .hidden()
-                        .accessibility(hidden: true)
-                        .onAppear {
-                            binding.wrappedValue = proxy.size
-                        }
-                        .onDisappear {
-                            binding.wrappedValue = nil
-                        }
-                        .onChange(of: proxy.size) { size in
-                            binding.wrappedValue = size
-                        }
-                }
-                .allowsHitTesting(false)
-                .accessibility(hidden: true)
-            }
-        }
+        modifier(
+            _MeasureAndRecordIntoOptionalBindingSizeViewModifier(
+                shouldMeasure: shouldMeasure,
+                sizeBinding: binding
+            )
+        )
     }
     
     /// Measures and records the size of the view.
@@ -221,7 +207,12 @@ extension View {
         _ shouldMeasure: Bool = true,
         into binding: Binding<CGSize>
     ) -> some View {
-        _measureAndRecordSize(shouldMeasure, into: binding._asOptional(defaultValue: .zero))
+        modifier(
+            _MeasureAndRecordSizeIntoBindingViewModifier(
+                shouldMeasure: shouldMeasure,
+                sizeBinding: binding
+            )
+        )
     }
     
     /// Measures and records the size of the view using a closure.
@@ -237,12 +228,112 @@ extension View {
         _ shouldMeasure: Bool = true,
         _ fn: @escaping (CGSize) -> Void
     ) -> some View {
-        _measureAndRecordSize(
-            shouldMeasure,
-            into: Binding<CGSize>(
-                get: { .zero },
-                set: { fn($0) }
-            )
+        modifier(_MeasureAndRecordChangeOfSizeViewModifier(shouldMeasure: shouldMeasure, onChange: fn))
+    }
+}
+
+fileprivate struct _MeasureAndRecordChangeOfSizeViewModifier: ViewModifier {
+    let shouldMeasure: Bool
+    let onChange: (CGSize) -> Void
+    
+    @State var hasSetLastSizeAtLeastOnce: Bool = false
+     
+    @ViewStorage var lastSize: CGSize?
+    
+    private var lastSizeBinding: Binding<CGSize> {
+        Binding<CGSize>(
+            get: {
+                lastSize ?? .zero
+            },
+            set: { (newValue: CGSize) in
+                guard lastSize != newValue else {
+                    return
+                }
+                
+                if hasSetLastSizeAtLeastOnce {
+                    assert(lastSize != nil)
+                }
+                
+                if lastSize == nil {
+                    lastSize = newValue
+                } else {
+                    lastSize = newValue
+                }
+                
+                if !hasSetLastSizeAtLeastOnce {
+                    hasSetLastSizeAtLeastOnce = true
+                }
+                
+                onChange(newValue)
+            }
         )
+    }
+    func body(content: Content) -> some View {
+        content._measureAndRecordSize(shouldMeasure, into: lastSizeBinding)
+    }
+}
+
+fileprivate struct _MeasureAndRecordSizeIntoBindingViewModifier: ViewModifier {
+    let shouldMeasure: Bool
+    
+    @Binding var sizeBinding: CGSize
+    
+    func body(content: Content) -> some View {
+        content.background {
+            if shouldMeasure {
+                GeometryReader { proxy in
+                    Color.clear
+                        .hidden()
+                        .accessibility(hidden: true)
+                        .onAppear {
+                            if sizeBinding != proxy.size {
+                                sizeBinding = proxy.size
+                            }
+                        }
+                        .onChange(of: proxy.size) { (size: CGSize) in
+                            if sizeBinding != size {
+                                sizeBinding = size
+                            }
+                        }
+                }
+                .allowsHitTesting(false)
+                .accessibility(hidden: true)
+            }
+        }
+    }
+}
+
+fileprivate struct _MeasureAndRecordIntoOptionalBindingSizeViewModifier: ViewModifier {
+    let shouldMeasure: Bool
+
+    @Binding var sizeBinding: CGSize?
+
+    func body(content: Content) -> some View {
+        content.background {
+            if shouldMeasure {
+                GeometryReader { proxy in
+                    Color.clear
+                        .hidden()
+                        .accessibility(hidden: true)
+                        .onAppear {
+                            if sizeBinding != proxy.size {
+                                sizeBinding = proxy.size
+                            }
+                        }
+                        .onDisappear {
+                            if sizeBinding != nil {
+                                sizeBinding = nil
+                            }
+                        }
+                        .onChange(of: proxy.size) { (size: CGSize) in
+                            if sizeBinding != size {
+                                sizeBinding = size
+                            }
+                        }
+                }
+                .allowsHitTesting(false)
+                .accessibility(hidden: true)
+            }
+        }
     }
 }

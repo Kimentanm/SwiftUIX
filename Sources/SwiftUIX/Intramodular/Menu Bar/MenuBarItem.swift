@@ -10,21 +10,22 @@ import Swift
 import SwiftUI
 
 /// A model that represents an item which can be placed in the menu bar.
+@_documentation(visibility: internal)
 public struct MenuBarItem<ID, Label: View, Content: View> {
     public let id: ID
     
     internal let length: CGFloat?
     
-    public let action: (@MainActor () -> Void)?
-    public let label: Label
-    public let content: Content
+    public var action: (@MainActor () -> Void)?
+    public var label: () -> Label
+    public var content: () -> Content
     
     public init(
         id: ID,
         length: CGFloat?,
         action: (@MainActor () -> Void)?,
-        label: Label,
-        content: Content
+        label: @escaping () -> Label,
+        content: @escaping () -> Content
     ) {
         self.id = id
         self.action = action
@@ -39,8 +40,8 @@ extension MenuBarItem where Label == _MenuBarExtraLabelContent {
         id: ID,
         length: CGFloat?,
         action: (@MainActor () -> Void)?,
-        label: _MenuBarExtraLabelContent,
-        content: Content
+        label: @escaping () -> _MenuBarExtraLabelContent,
+        content: @escaping () -> Content
     ) {
         self.id = id
         self.length = length
@@ -55,16 +56,18 @@ extension MenuBarItem where Label == _MenuBarExtraLabelContent {
         length: CGFloat? = nil,
         image: _AnyImage,
         imageSize: CGSize? = nil,
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: @escaping () -> Content
     ) {
         self.init(
             id: id,
             length: length ?? 28.0,
             action: action,
-            label: .image(
-                image._preferredSize(imageSize ?? CGSize(width: 18.0, height: 18.0))
-            ),
-            content: content()
+            label: {
+                _MenuBarExtraLabelContent.image(
+                    image._preferredSize(imageSize ?? CGSize(width: 18.0, height: 18.0))
+                )
+            },
+            content: content
         )
     }
     
@@ -74,16 +77,18 @@ extension MenuBarItem where Label == _MenuBarExtraLabelContent {
         length: CGFloat? = nil,
         image: _AnyImage.Name,
         imageSize: CGSize? = nil,
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: @escaping () -> Content
     ) {
         self.init(
             id: id,
             length: length,
             action: action,
-            label: .image(
-                _AnyImage(named: image)._preferredSize(imageSize)
-            ),
-            content: content()
+            label: {
+                _MenuBarExtraLabelContent.image(
+                    _AnyImage(named: image)._preferredSize(imageSize)
+                )
+            },
+            content: content
         )
     }
     
@@ -92,14 +97,14 @@ extension MenuBarItem where Label == _MenuBarExtraLabelContent {
         action: (@MainActor () -> Void)?,
         length: CGFloat? = 28.0,
         text: String,
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: @escaping () -> Content
     ) {
         self.init(
             id: id,
             length: length,
             action: action,
-            label: .text(text),
-            content: content()
+            label: { .text(text) },
+            content: content
         )
     }
 }
@@ -119,7 +124,7 @@ extension View {
         id: ID,
         image: _AnyImage.Name,
         isActive: Binding<Bool>? = nil,
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: @escaping () -> Content
     ) -> some View {
         modifier(
             InsertMenuBarPopover(
@@ -139,7 +144,7 @@ extension View {
     public func menuBarItem<Content: View>(
         image: _AnyImage.Name,
         isActive: Binding<Bool>? = nil,
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: @escaping () -> Content
     ) -> some View {
         let content = content()
         
@@ -153,11 +158,16 @@ extension View {
         id: ID,
         systemImage image: String,
         isActive: Binding<Bool>? = nil,
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: @escaping () -> Content
     ) -> some View {
         modifier(
             InsertMenuBarPopover(
-                item: MenuBarItem(id: id, action: nil, image: .system(image), content: content),
+                item: MenuBarItem(
+                    id: id,
+                    action: nil,
+                    image: .system(image),
+                    content: content
+                ),
                 isActive: isActive
             )
         )
@@ -169,6 +179,7 @@ extension View {
 
 // MARK: - Auxiliary
 
+@_documentation(visibility: internal)
 public enum _MenuBarExtraLabelContent: Hashable, View {
     case image(_AnyImage)
     case text(String)

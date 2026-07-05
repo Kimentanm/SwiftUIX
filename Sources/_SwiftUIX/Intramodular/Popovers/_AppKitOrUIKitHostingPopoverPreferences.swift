@@ -4,6 +4,7 @@
 
 import SwiftUI
 
+@_documentation(visibility: internal)
 public struct _AppKitOrUIKitHostingPopoverPreferences: ExpressibleByNilLiteral, Hashable {
     public var isDetachable: Bool = false
     
@@ -33,7 +34,9 @@ extension _AppKitOrUIKitHostingPopoverPreferences {
 }
 
 extension View {
-    public func _popoverWindowDetachable(_ detachable: Bool) -> some View {
+    public func _popoverWindowDetachable(
+        _ detachable: Bool
+    ) -> some View {
         transformPreference(_AppKitOrUIKitHostingPopoverPreferences._PreferenceKey.self) {
             $0.isDetachable = detachable
         }

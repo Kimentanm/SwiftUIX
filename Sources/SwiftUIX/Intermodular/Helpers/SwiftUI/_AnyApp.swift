@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+@_documentation(visibility: internal)
 public struct _AnyApp: SwiftUI.App {
     public var body: some Scene {
         _EmptyScene()
@@ -24,10 +25,10 @@ extension SwiftUI.App where Self == _AnyApp {
 }
 
 extension App {
-    public var _SwiftUIX_appActivationPolicy: _SwiftUIX_AppActivationPolicy {
+    public static var _SwiftUIX_appActivationPolicy: _SwiftUIX_AppActivationPolicy {
         get {
             _SwiftUIX_AppActivationPolicy(from: NSApplication.shared.activationPolicy())
-        } nonmutating set {
+        } set {
             guard newValue != self._SwiftUIX_appActivationPolicy else {
                 return
             }
@@ -42,8 +43,17 @@ extension App {
             }
         }
     }
+    
+    public var _SwiftUIX_appActivationPolicy: _SwiftUIX_AppActivationPolicy {
+        get {
+            Self._SwiftUIX_appActivationPolicy
+        } nonmutating set {
+            Self._SwiftUIX_appActivationPolicy = newValue
+        }
+    }
 }
 
+@_documentation(visibility: internal)
 public enum _SwiftUIX_AppActivationPolicy: Hashable {
     case regular
     case accessory

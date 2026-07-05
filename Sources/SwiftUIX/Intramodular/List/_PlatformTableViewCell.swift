@@ -7,6 +7,7 @@ import SwiftUI
 
 #if os(iOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
 
+@_documentation(visibility: internal)
 public class _PlatformTableViewCell<ItemType: Identifiable, Content: View>: UITableViewCell {
     struct State: Hashable {
         let isFocused: Bool
@@ -14,7 +15,7 @@ public class _PlatformTableViewCell<ItemType: Identifiable, Content: View>: UITa
         let isSelected: Bool
     }
     
-    var tableViewController: UITableViewController!
+    weak var tableViewController: UITableViewController!
     var indexPath: IndexPath?
     
     var item: ItemType!

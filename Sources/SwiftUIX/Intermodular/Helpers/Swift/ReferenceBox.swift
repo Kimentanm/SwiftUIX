@@ -2,6 +2,7 @@
 // Copyright (c) Vatsal Manot
 //
 
+import _SwiftUIX
 import Combine
 import Swift
 import SwiftUI
@@ -26,9 +27,10 @@ public protocol _SwiftUIX_AnyIndirectValueBox<Value> {
     var wrappedValue: Value { get nonmutating set }
 }
 
-// MARK: - Implemented Conformances
+// MARK: - Conformees
 
 @propertyWrapper
+@_documentation(visibility: internal)
 public struct _SwiftUIX_MutableValueBox<Value>: _SwiftUIX_AnyMutableValueBox {
     public var wrappedValue: Value
     
@@ -50,6 +52,7 @@ extension _SwiftUIX_MutableValueBox: Sendable where Value: Sendable {
 }
 
 @_spi(Internal)
+@_documentation(visibility: internal)
 public struct _UnsafeIndirectConstantValueBox<Value>: _SwiftUIX_AnyIndirectValueBox {
     public let _wrappedValue: Value
     
@@ -138,6 +141,7 @@ final class LazyReferenceBox<T>: _SwiftUIX_AnyIndirectValueBox {
 
 @_spi(Internal)
 @propertyWrapper
+@_documentation(visibility: internal)
 public struct _SwiftUIX_Weak<Value>: _SwiftUIX_AnyMutableValueBox {
     private weak var _weakWrappedValue: AnyObject?
     private var _strongWrappedValue: Value?
@@ -220,6 +224,7 @@ final class UnsafeWeakReferenceBox<T>: _SwiftUIX_AnyIndirectValueBox {
 }
 
 @propertyWrapper
+@_documentation(visibility: internal)
 public final class _SwiftUIX_ObservableReferenceBox<Value>: ObservableObject {
     @Published public var value: Value
     
@@ -245,6 +250,7 @@ public final class _SwiftUIX_ObservableReferenceBox<Value>: ObservableObject {
 }
 
 @propertyWrapper
+@_documentation(visibility: internal)
 public final class _SwiftUIX_ObservableWeakReferenceBox<T: AnyObject>: ObservableObject {
     public let objectWillChange: ObservableObjectPublisher
     
@@ -254,7 +260,7 @@ public final class _SwiftUIX_ObservableWeakReferenceBox<T: AnyObject>: Observabl
                 return
             }
             
-            objectWillChange.send()
+            _objectWillChange_send()
         }
     }
     
@@ -286,10 +292,11 @@ public final class _SwiftUIX_ObservableWeakReferenceBox<T: AnyObject>: Observabl
 
 @_spi(Internal)
 @propertyWrapper
+@_documentation(visibility: internal)
 public final class _SwiftUIX_WeakObservableReferenceBox<Value: AnyObject>: ObservableObject {
     public weak var value: Value? {
         didSet {
-            objectWillChange.send()
+            _objectWillChange_send()
         }
     }
     
@@ -316,6 +323,7 @@ public final class _SwiftUIX_WeakObservableReferenceBox<Value: AnyObject>: Obser
 
 @_spi(Internal)
 @propertyWrapper
+@_documentation(visibility: internal)
 public struct _SwiftUIX_ObjectPointer<Value: AnyObject>: Hashable {
     public var pointee: Value
     
@@ -350,6 +358,7 @@ extension _SwiftUIX_ObjectPointer: @unchecked Sendable where Value: Sendable {
 
 @_spi(Internal)
 @propertyWrapper
+@_documentation(visibility: internal)
 public struct _SwiftUIX_WeakObjectPointer<Value: AnyObject>: Hashable {
     public weak var pointee: Value?
     
@@ -384,6 +393,7 @@ extension _SwiftUIX_WeakObjectPointer: @unchecked Sendable where Value: Sendable
 
 @frozen
 @propertyWrapper
+@_documentation(visibility: internal)
 public struct _SwiftUIX_Metatype<T>: CustomStringConvertible, Hashable {
     @usableFromInline
     let _wrappedValue: Any.Type

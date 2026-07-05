@@ -8,6 +8,7 @@ import Combine
 import Swift
 import SwiftUI
 
+@_documentation(visibility: internal)
 public enum _SwiftUIX_TextEditorEvent: Hashable {
     case insert(text: NSAttributedString, range: NSRange?)
     case delete(text: NSAttributedString, range: NSRange)
@@ -29,6 +30,7 @@ public enum _SwiftUIX_TextEditorEvent: Hashable {
 }
 
 @available(macOS 11.0, *)
+@_documentation(visibility: internal)
 public struct _TextViewReader<Content: View>: View {
     private let content: (_TextEditorProxy) -> Content
     
@@ -39,7 +41,7 @@ public struct _TextViewReader<Content: View>: View {
     ) {
         self.content = content
     }
-
+    
     public var body: some View {
         let proxyBinding = $proxy.binding
         
@@ -48,13 +50,14 @@ public struct _TextViewReader<Content: View>: View {
     }
 }
 
+@_documentation(visibility: internal)
 public final class _TextEditorProxy: Hashable, ObservableObject, @unchecked Sendable {
     public typealias _Base = any _SwiftUIX_AnyIndirectValueBox<AppKitOrUIKitTextView?>
     
     let _base = WeakReferenceBox<AppKitOrUIKitTextView>(nil)
     
     private var _fakeTextCursor = _ObservableTextCursor(owner: nil)
-    
+        
     @_spi(Internal)
     public var base: (any _PlatformTextViewType)? {
         get {
@@ -64,16 +67,29 @@ public final class _TextEditorProxy: Hashable, ObservableObject, @unchecked Send
                 return
             }
             
-            objectWillChange.send()
+            _objectWillChange_send()
             
             _base.wrappedValue = newValue
+        }
+    }
+    
+    @_spi(Internal)
+    public func _withResolveBase(
+        perform operation: @escaping (any _PlatformTextViewType) -> Void
+    ) {
+        if let base {
+            operation(base)
+        } else {
+            Task.detached(priority: .userInitiated) { @MainActor in
+                operation(self.base!)
+            }
         }
     }
     
     public var isFocused: Bool {
         base?._SwiftUIX_isFirstResponder ?? false
     }
-
+    
     public var textCursor: _ObservableTextCursor {
         base?._observableTextCursor ?? _fakeTextCursor
     }

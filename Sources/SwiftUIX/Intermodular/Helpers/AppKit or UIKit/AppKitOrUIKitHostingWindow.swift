@@ -61,14 +61,33 @@ extension AppKitOrUIKitHostingWindowProtocol {
 }
 #endif
 
-public struct _AppKitOrUIKitHostingWindowConfiguration: Equatable {
-    public var style: _WindowStyle = .default
+@_documentation(visibility: internal)
+public struct _AppKitOrUIKitHostingWindowConfiguration: Hashable, Sendable {
+    public var style: _WindowStyle
     public var canBecomeKey: Bool?
     public var allowTouchesToPassThrough: Bool?
     public var windowPosition: _CoordinateSpaceRelative<CGPoint>?
     public var isTitleBarHidden: Bool?
     public var backgroundColor: Color?
     public var preferredColorScheme: ColorScheme?
+
+    public init(
+        style: _WindowStyle = .default,
+        canBecomeKey: Bool? = nil,
+        allowTouchesToPassThrough: Bool? = nil,
+        windowPosition: _CoordinateSpaceRelative<CGPoint>? = nil,
+        isTitleBarHidden: Bool? = nil,
+        backgroundColor: Color? = nil,
+        preferredColorScheme: ColorScheme? = nil
+    ) {
+        self.style = style
+        self.canBecomeKey = canBecomeKey
+        self.allowTouchesToPassThrough = allowTouchesToPassThrough
+        self.windowPosition = windowPosition
+        self.isTitleBarHidden = isTitleBarHidden
+        self.backgroundColor = backgroundColor
+        self.preferredColorScheme = preferredColorScheme
+    }
     
     public mutating func mergeInPlace(with other: Self) {
         self.canBecomeKey = other.canBecomeKey ?? self.canBecomeKey
@@ -83,6 +102,7 @@ public struct _AppKitOrUIKitHostingWindowConfiguration: Equatable {
 @available(macCatalystApplicationExtension, unavailable)
 @available(iOSApplicationExtension, unavailable)
 @available(tvOSApplicationExtension, unavailable)
+@_documentation(visibility: internal)
 open class AppKitOrUIKitHostingWindow<Content: View>: AppKitOrUIKitWindow, AppKitOrUIKitHostingWindowProtocol {
     public typealias _ContentViewControllerType = CocoaHostingController<_AppKitOrUIKitHostingWindowContent<Content>>
     
@@ -390,8 +410,12 @@ open class AppKitOrUIKitHostingWindow<Content: View>: AppKitOrUIKitWindow, AppKi
                 hasShadow = false
             case .titleBar:
                 self.init(contentViewController: contentViewController)
+                
+                self._SwiftUIX_windowConfiguration.style = style
             case ._transparent:
                 self.init(contentViewController: contentViewController)
+                
+                self._SwiftUIX_windowConfiguration.style = style
         }
         
         Task.detached { @MainActor in
@@ -403,6 +427,8 @@ open class AppKitOrUIKitHostingWindow<Content: View>: AppKitOrUIKitWindow, AppKi
         if self.contentViewController == nil {
             self.contentViewController = contentViewController
         }
+        
+        assert(self._SwiftUIX_windowConfiguration.style == style)
         
         performSetUp()
         
@@ -453,15 +479,17 @@ open class AppKitOrUIKitHostingWindow<Content: View>: AppKitOrUIKitWindow, AppKi
                 }
             }
             case ._transparent:
+                styleMask = [.borderless, .fullSizeContentView]
                 collectionBehavior = [.fullScreenPrimary]
                 level = .floating
-                isMovable = false
                 titleVisibility = .hidden
                 titlebarAppearsTransparent = true
-                
+                isMovable = true
+                isMovableByWindowBackground = true
+                ignoresMouseEvents = false
+
                 standardWindowButton(.closeButton)?.isHidden = true
                 standardWindowButton(.miniaturizeButton)?.isHidden = true
-                
                 standardWindowButton(.zoomButton)?.isHidden = true
                 
                 hasShadow = false
@@ -557,10 +585,16 @@ open class AppKitOrUIKitHostingWindow<Content: View>: AppKitOrUIKitWindow, AppKi
        
         let contentWindowController = self._contentWindowController ?? NSWindowController(window: self)
         
+        if self.contentViewController?.view.frame.size == Screen.bounds.size {
+            self.styleMask.insert(.fullSizeContentView)
+        }
+        
         self._contentWindowController = contentWindowController
         
         self.isHidden = false
 
+        assert(contentWindowController.window !== nil)
+        
         if _SwiftUIX_windowConfiguration.windowPosition == nil {
             contentWindowController.showWindow(self)
             
@@ -568,6 +602,8 @@ open class AppKitOrUIKitHostingWindow<Content: View>: AppKitOrUIKitWindow, AppKi
                 assert(self._rootHostingViewController.mainView._window != nil)
                 
                 self.applyPreferredConfiguration()
+                
+                contentWindowController.window!.center()
             }
         } else {
             self.applyPreferredConfiguration()
@@ -611,6 +647,19 @@ open class AppKitOrUIKitHostingWindow<Content: View>: AppKitOrUIKitWindow, AppKi
     #else
     @objc open func close() {
         _SwiftUIX_dismiss()
+    }
+    #endif
+    
+    #if os(macOS)
+    override open func constrainFrameRect(
+        _ frameRect: NSRect,
+        to screen: NSScreen?
+    ) -> NSRect {
+        if _SwiftUIX_windowConfiguration.style == .plain {
+            return frameRect
+        } else {
+            return super.constrainFrameRect(frameRect, to: nil)
+        }
     }
     #endif
     
@@ -796,11 +845,7 @@ extension AppKitOrUIKitHostingWindow {
             _SwiftUIX_windowConfiguration.windowPosition = position
         }
         
-        guard let sourceWindow = windowPresentationController?._sourceAppKitOrUIKitWindow ?? position._sourceAppKitOrUIKitWindow ?? AppKitOrUIKitApplication.shared.windows.first else {
-            assertionFailure()
-            
-            return
-        }
+        let sourceWindow: AppKitOrUIKitWindow? = windowPresentationController?._sourceAppKitOrUIKitWindow ?? position._sourceAppKitOrUIKitWindow
         
         if var position = position[.coordinateSpace(.global)] {
             var rect = CGRect(
@@ -808,10 +853,12 @@ extension AppKitOrUIKitHostingWindow {
                 size: self.frame.size
             )
             
-            rect.origin.y = sourceWindow.frame.height - position.y
-            
-            position = sourceWindow.convertToScreen(rect).origin
-            
+            if let sourceWindow {
+                rect.origin.y = sourceWindow.frame.height - position.y
+                
+                position = sourceWindow.convertToScreen(rect).origin
+            }
+                        
             let origin = CGPoint(
                 x: position.x - (self.frame.size.width / 2),
                 y: position.y - (self.frame.size.height / 2)

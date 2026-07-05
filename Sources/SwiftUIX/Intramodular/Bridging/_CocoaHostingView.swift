@@ -4,11 +4,13 @@
 
 #if os(iOS) || os(macOS) || os(tvOS) || os(visionOS)
 
+import _SwiftUIX
 import Combine
 import Swift
 import SwiftUI
 
 @frozen
+@_documentation(visibility: internal)
 public enum _CocoaHostingViewStateFlag {
     case didJustMoveToSuperview
     case hasAppearedAndIsCurrentlyVisible
@@ -26,6 +28,7 @@ public enum _CocoaHostingViewStateFlag {
 ///
 /// And during the execution of your operation, that flag will be in effect. It is used by `_PlatformTableView` and other performance-critical views to override UIKit/AppKit to make it play nicer with SwiftUI and avoid redundant computation where we (the developer) know that SwiftUI is already observing/handling some computation, and UIKit/AppKit needs to be suppressed.
 @frozen
+@_documentation(visibility: internal)
 public enum _CocoaHostingViewConfigurationFlag {
     case invisible
     case disableResponderChain
@@ -35,7 +38,8 @@ public enum _CocoaHostingViewConfigurationFlag {
     case suppressIntrinsicContentSizeInvalidation
 }
 
-open class _CocoaHostingView<Content: View>: AppKitOrUIKitHostingView<CocoaHostingControllerContent<Content>>, _CocoaHostingControllerOrView {
+@_documentation(visibility: internal)
+open class _CocoaHostingView<Content: View>: AppKitOrUIKitHostingView<CocoaHostingControllerContent<Content>>, _SwiftUIX_AppKitOrUIKitHostingViewProtocol, _CocoaHostingControllerOrView {
     public typealias MainView = Content
     public typealias RootView = CocoaHostingControllerContent<Content>
     
@@ -46,7 +50,7 @@ open class _CocoaHostingView<Content: View>: AppKitOrUIKitHostingView<CocoaHosti
     public var _hostingViewStateFlags: Set<_CocoaHostingViewStateFlag> = []
     public var _overrideSizeForUpdateConstraints: OptionalDimensions = nil
 
-    public var _configuration: CocoaHostingControllerConfiguration = .init() {
+    public var _configuration: CocoaHostingControllerOrViewConfiguration = .init() {
         didSet {
             rootView.parentConfiguration = _configuration
         }
@@ -61,6 +65,22 @@ open class _CocoaHostingView<Content: View>: AppKitOrUIKitHostingView<CocoaHosti
             rootView.content = newValue
         }
     }
+    
+    @_optimize(speed)
+    @inline(__always)
+    public var _SwiftUIX_hostedContent: RootView._Content {
+        get {
+            rootView.content
+        } set {
+            rootView.content = newValue
+        }
+    }
+
+    #if os(macOS)
+    override open var wantsDefaultClipping: Bool {
+        super.wantsDefaultClipping
+    }
+    #endif
     
     #if os(macOS)
     @_optimize(speed)
@@ -387,6 +407,31 @@ extension _CocoaHostingView {
         self._hostingViewConfigurationFlags.formUnion(flags)
         
         return action()
+    }
+    
+    @_optimize(speed)
+    @_transparent
+    @inlinable
+    @inline(__always)
+    public func withCriticalScope<Result>(
+        _ flags: Set<_CocoaHostingViewConfigurationFlag>,
+        perform action: () throws -> Result
+    ) rethrows -> Result {
+        let currentFlags = self._hostingViewConfigurationFlags
+                
+        self._hostingViewConfigurationFlags.formUnion(flags)
+        
+        do {
+            let result = try action()
+            
+            self._hostingViewConfigurationFlags = currentFlags
+
+            return result
+        } catch {
+            self._hostingViewConfigurationFlags = currentFlags
+
+            throw error
+        }
     }
 }
 

@@ -4,13 +4,16 @@
 
 #if os(iOS) || os(macOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
 
+import _SwiftUIX
 import Combine
 import Swift
 import SwiftUI
 
 @_spi(Internal)
-public protocol _PlatformTextViewType: _AppKitOrUIKitRepresented, AppKitOrUIKitTextView {
+public protocol _PlatformTextViewType: _AppKitOrUIKitRepresented, _AnyPlatformTextView {
     associatedtype Label: View
+    
+    var textKitVersion: _TextKitVersion { get }
     
     var _SwiftUIX_textViewConfiguration: _TextViewConfiguration { get }
     
@@ -25,6 +28,8 @@ public protocol _PlatformTextViewType: _AppKitOrUIKitRepresented, AppKitOrUIKitT
     var _textEditorEventPublisher: AnyPublisher<_SwiftUIX_TextEditorEvent, Never> { get }
     var _observableTextCursor: _ObservableTextCursor { get }
     
+    static func _SwiftUIX_makeLayoutManager() -> NSLayoutManager?
+    
     func _SwiftUIX_makeLayoutManager() -> NSLayoutManager?
 
     func representableWillAssemble(context: some _AppKitOrUIKitViewRepresentableContext)
@@ -32,53 +37,211 @@ public protocol _PlatformTextViewType: _AppKitOrUIKitRepresented, AppKitOrUIKitT
     @available(iOS 13.0, macOS 11.0, tvOS 13.0, *)
     func representableDidUpdate(
         data: _TextViewDataBinding,
-        configuration: TextView<Label>._Configuration,
+        textViewConfiguration: _TextViewConfiguration,
         context: some _AppKitOrUIKitViewRepresentableContext
     )
-    
-    func invalidateLayout(for range: NSRange)
-    func invalidateDisplay(for range: NSRange)
+       
     func _ensureLayoutForTextContainer()
 }
 
-/// The main `UITextView` subclass used by `TextView`.
-@available(iOS 13.0, macOS 11.0, tvOS 13.0, *)
-open class _PlatformTextView<Label: View>: AppKitOrUIKitTextView, NSLayoutManagerDelegate, NSTextStorageDelegate {
+public enum _AnyPlatformTextViewState {
+    
+}
+
+/// The TextKit generation that a text view instance is using.
+public enum _TextKitVersion {
+    case v1   // NSTextStorage + NSLayoutManager + NSTextContainer
+    case v2   // NSTextContentStorage + NSTextLayoutManager + NSTextContainer
+}
+
+open class _AnyPlatformTextView: AppKitOrUIKitTextView, AppKitOrUIKitTextInputDelegate {
     public var representatableStateFlags: _AppKitOrUIKitRepresentableStateFlags = []
     public var representableCache: _AppKitOrUIKitRepresentableCache = nil
     public var representableUpdater = EmptyObservableObject()
 
+    public let _wantsTextKit1: Bool?
+ 
+    public var isUsingTextKit2: Bool {
+        (_wantsTextKit1 ?? true) == false
+    }
+    
+    public var textKitVersion: _TextKitVersion {
+        self.isUsingTextKit2 == true ? .v2 : .v1
+    }
+
+    public internal(set) var _customTextStorage: NSTextStorage?
+
     @_spi(Internal)
     public internal(set) var data: _TextViewDataBinding = .string(.constant(""))
     @_spi(Internal)
-    public internal(set) var configuration = TextView<Label>._Configuration()
+    public internal(set) var textViewConfiguration = _TextViewConfiguration()
     
+    public var _needsIntrinsicContentSizeInvalidation = true
+    public var _cachedIntrinsicContentSizeUsedAtLeastOnce: Bool = false
+    public var _wantsRelayout: Bool = false
+    public var _isTextLayoutInProgress: Bool? = nil
+
+    open var _providesCustomSetDataValueMethod: Bool {
+        false
+    }
+
     public var _SwiftUIX_textViewConfiguration: _TextViewConfiguration {
-        configuration
+        textViewConfiguration
     }
     
+    public var _SwiftUIX_intrinsicContentSizeIsDisabled: Bool {
+        if let _fixedSize: _SwiftUIX_FixedSizeInfo = textViewConfiguration._fixedSize {
+            if _fixedSize.value == (false, false) {
+                return true
+            }
+        }
+        
+        return false
+    }
+
+    override open var selectedRange: NSRange {
+        get {
+            super.selectedRange
+        } set {
+            super.selectedRange = newValue
+        }
+    }
+    
+    #if os(iOS)
+    override open var selectedTextRange: UITextRange? {
+        get {
+            super.selectedTextRange
+        } set {
+            if let newValue {
+                super.selectedTextRange = newValue
+            } else {
+                super.selectedTextRange = nil
+            }
+        }
+    }
+    #endif
+    
+    open class func _SwiftUIX_makeLayoutManager() -> NSLayoutManager? {
+        return nil
+    }
+    
+    open func _SwiftUIX_makeLayoutManager() -> NSLayoutManager? {
+        return nil
+    }
+
+    func _setUpAnyPlatformTextView() {
+        #if os(iOS)
+        self.inputDelegate = self
+        #endif
+    }
+    
+    override public init(
+        frame: CGRect,
+        textContainer: NSTextContainer?
+    ) {
+        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, *) {
+            self._wantsTextKit1 = textContainer?.textLayoutManager == nil
+        } else {
+            self._wantsTextKit1 = true
+        }
+
+        super.init(frame: frame, textContainer: textContainer)
+        
+        _setUpAnyPlatformTextView()
+    }
+    
+    @objc public required init(
+        usingTextLayoutManager: Bool,
+        textStorage customTextStorage: NSTextStorage?
+    ) {
+        let wantsTextKit1 = !usingTextLayoutManager
+        
+        self._wantsTextKit1 = wantsTextKit1
+
+        /// The macOS check is necessary. It seems that on macOS, initializing the NSTextView first and then calling `_SwiftUIX_replaceTextStorage` works better than initializing with a custom `NSTextContainer`.
+        if let customTextStorage: NSTextStorage, wantsTextKit1, _SwiftUI_TargetPlatformType.current != .macOS {
+            assert(customTextStorage.layoutManagers.isEmpty)
+            
+            let layoutManager: NSLayoutManager = Self._SwiftUIX_makeLayoutManager() ?? NSLayoutManager()
+            customTextStorage.addLayoutManager(layoutManager)
+            let textContainer = NSTextContainer()
+            layoutManager.addTextContainer(textContainer)
+            
+            super.init(frame: .zero, textContainer: textContainer)
+        } else {
+            if #available(iOS 16.0, tvOS 16.0, *) {
+                super.init(_SwiftUIX_usingTextLayoutManager: usingTextLayoutManager)
+            } else {
+                super.init()
+            }
+            
+            if let customTextStorage: NSTextStorage {
+                assert(self.textStorage !== customTextStorage)
+                
+                _SwiftUIX_replaceTextStorage(customTextStorage)
+            }
+        }
+        
+        if let customTextStorage {
+            self._customTextStorage = customTextStorage // TODO: Remove if not needed.
+            
+            assert(self.textStorage == customTextStorage)
+        }
+
+        _setUpAnyPlatformTextView()
+    }
+    
+    public required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    // MARK: - UITextInputDelegate
+
+    #if os(iOS) || os(tvOS) || os(visionOS)
+    open func selectionWillChange(_ textInput: (any UITextInput)?) {
+
+    }
+    
+    open func selectionDidChange(_ textInput: (any UITextInput)?) {
+
+    }
+    
+    open func textWillChange(_ textInput: (any UITextInput)?) {
+
+    }
+    
+    open func textDidChange(_ textInput: (any UITextInput)?) {
+
+    }
+    #endif
+        
+    #if compiler(>=6.1) && os(iOS) && !targetEnvironment(macCatalyst)
+    @available(iOS 18.4, *)
+    public func conversationContext(
+        _ context: UIConversationContext?,
+        didChange textInput: (any UITextInput)?
+    ) {
+        
+    }
+    #endif
+}
+
+/// The main `UITextView` subclass used by `TextView`.
+@available(iOS 13.0, macOS 11.0, tvOS 13.0, *)
+@_documentation(visibility: internal)
+open class _PlatformTextView<Label: View>: _AnyPlatformTextView, NSLayoutManagerDelegate, NSTextStorageDelegate {
     @_spi(Internal)
-    public internal(set) var customAppKitOrUIKitClassConfiguration: TextView<Label>._CustomAppKitOrUIKitClassConfiguration!
+    public internal(set) var customAppKitOrUIKitClassConfiguration: _AnyTextView._CustomAppKitOrUIKitClassConfiguration!
     
     public var _textEditorProxyBase: _TextEditorProxy._Base?
     
-    public internal(set) var _wantsTextKit1: Bool?
-    public internal(set) var _customTextStorage: NSTextStorage?
     public internal(set) var _lastInsertedString: NSAttributedString?
-    public internal(set) var _wantsRelayout: Bool = false
-    public internal(set) var _isTextLayoutInProgress: Bool? = nil
-    
-    public var _needsIntrinsicContentSizeInvalidation = true
-    
+        
     private var _lazyTextEditorEventSubject: PassthroughSubject<_SwiftUIX_TextEditorEvent, Never>? = nil
     private var _lazyTextEditorEventPublisher: AnyPublisher<_SwiftUIX_TextEditorEvent, Never>? = nil
     
     private var _lazy_observableTextCursor: _ObservableTextCursor? = nil
-    
-    open var _providesCustomSetDataValueMethod: Bool {
-        false
-    }
-    
+            
     @_spi(Internal)
     public var _textEditorEventPublisher: AnyPublisher<_SwiftUIX_TextEditorEvent, Never> {
         guard let publisher = _lazyTextEditorEventPublisher else {
@@ -218,11 +381,9 @@ open class _PlatformTextView<Label: View>: AppKitOrUIKitTextView, NSLayoutManage
         }
     }
     #endif
-    
-    var _cachedIntrinsicContentSizeUsedAtLeastOnce: Bool = false
-    
+        
     override open var intrinsicContentSize: CGSize {
-        if let _fixedSize = configuration._fixedSize {
+        if let _fixedSize: _SwiftUIX_FixedSizeInfo = textViewConfiguration._fixedSize {
             if _fixedSize.value == (false, false) {
                 return CGSize(width: AppKitOrUIKitView.noIntrinsicMetric, height: AppKitOrUIKitView.noIntrinsicMetric)
             }
@@ -235,51 +396,20 @@ open class _PlatformTextView<Label: View>: AppKitOrUIKitTextView, NSLayoutManage
         } else {
             let result = super.intrinsicContentSize
             
-            representableCache._cachedIntrinsicContentSize = result
+            if !result._hasUnspecifiedIntrinsicContentSizeDimensions {
+                representableCache._cachedIntrinsicContentSize = result
+            }
             
             return result
         }
     }
-    
-    var _SwiftUIX_intrinsicContentSizeIsDisabled: Bool {
-        if let _fixedSize = configuration._fixedSize {
-            if _fixedSize.value == (false, false) {
-                return true
-            }
-        }
-        
-        return false
-    }
-    
-    public convenience required init(
-        usingTextLayoutManager: Bool,
-        textStorage: NSTextStorage?
-    ) {
-        if #available(iOS 16.0, tvOS 16.0, *) {
-            self.init(usingTextLayoutManager: usingTextLayoutManager)
-        } else {
-            self.init()
-        }
-        
-        _wantsTextKit1 = !usingTextLayoutManager
-        
-        if let textStorage {
-            _SwiftUIX_replaceTextStorage(textStorage)
-            
-            self._customTextStorage = textStorage // TODO: Remove if not needed.
-        }
-    }
-    
-    open func _SwiftUIX_makeLayoutManager() -> NSLayoutManager? {
-        return nil
-    }
-    
+                
     open func representableWillAssemble(
         context: some _AppKitOrUIKitViewRepresentableContext
     ) {
         assert(!representatableStateFlags.contains(.didUpdateAtLeastOnce))
         
-        guard let textStorage = _SwiftUIX_textStorage else {
+        guard let textStorage: NSTextStorage = _SwiftUIX_textStorage else {
             assertionFailure()
             
             return
@@ -288,13 +418,19 @@ open class _PlatformTextView<Label: View>: AppKitOrUIKitTextView, NSLayoutManage
         textStorage.delegate = self
         
         if _wantsTextKit1 == true {
-            _SwiftUIX_layoutManager?.delegate = self
+            guard let layoutManager: NSLayoutManager = _SwiftUIX_layoutManager else {
+                assertionFailure()
+                
+                return
+            }
+            
+            layoutManager.delegate = self
         }
     }
     
     open func representableDidUpdate(
         data: _TextViewDataBinding,
-        configuration: TextView<Label>._Configuration,
+        textViewConfiguration: _TextViewConfiguration,
         context: some _AppKitOrUIKitViewRepresentableContext
     ) {
         if #available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *) {
@@ -304,11 +440,33 @@ open class _PlatformTextView<Label: View>: AppKitOrUIKitTextView, NSLayoutManage
         _PlatformTextView<Label>.updateAppKitOrUIKitTextView(
             self,
             data: data,
-            configuration: configuration,
+            textViewConfiguration: textViewConfiguration,
             context: context
         )
         
         _lazy_observableTextCursor?.update()
+    }
+    
+    @available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
+    open func representableSizeThatFits(
+        _ proposal: ProposedViewSize,
+        textViewConfiguration: _TextViewConfiguration,
+        context: some _AppKitOrUIKitViewRepresentableContext
+    ) -> CGSize? {
+        guard !representatableStateFlags.contains(.dismantled) else {
+            return nil
+        }
+        
+        let proposal = AppKitOrUIKitLayoutSizeProposal(
+            proposal,
+            fixedSize: textViewConfiguration._fixedSize?.value
+        )
+        
+        guard let size: CGSize = self._sizeThatFits(proposal: proposal) else {
+            return nil
+        }
+        
+        return size
     }
     
     #if os(iOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
@@ -488,7 +646,7 @@ open class _PlatformTextView<Label: View>: AppKitOrUIKitTextView, NSLayoutManage
     override open func deleteBackward() {
         super.deleteBackward()
         
-        configuration.onDeleteBackward()
+        textViewConfiguration.onDeleteBackward()
     }
     #elseif os(macOS)
     open override func setSelectedRange(
@@ -508,7 +666,7 @@ open class _PlatformTextView<Label: View>: AppKitOrUIKitTextView, NSLayoutManage
     override open func deleteBackward(_ sender: Any?) {
         super.deleteBackward(sender)
         
-        configuration.onDeleteBackward()
+        textViewConfiguration.onDeleteBackward()
         
         _lazy_observableTextCursor?.update()
     }
@@ -531,7 +689,7 @@ open class _PlatformTextView<Label: View>: AppKitOrUIKitTextView, NSLayoutManage
         if let shortcut = KeyboardShortcut(from: event) {
             switch shortcut {
                 case KeyboardShortcut(.return, modifiers: []):
-                    if let onCommit = configuration.onCommit {
+                    if let onCommit = textViewConfiguration.onCommit {
                         onCommit()
                         
                         self._SwiftUIX_didCommit()
@@ -561,8 +719,8 @@ open class _PlatformTextView<Label: View>: AppKitOrUIKitTextView, NSLayoutManage
             return
         }
         
-        if configuration.isFocused?.wrappedValue != _SwiftUIX_isFirstResponder {
-            configuration.isFocused?.wrappedValue = _SwiftUIX_isFirstResponder
+        if textViewConfiguration.isFocused?.wrappedValue != _SwiftUIX_isFirstResponder {
+            textViewConfiguration.isFocused?.wrappedValue = _SwiftUIX_isFirstResponder
         }
     }
     
@@ -648,7 +806,7 @@ open class _PlatformTextView<Label: View>: AppKitOrUIKitTextView, NSLayoutManage
     ) {
         _isTextLayoutInProgress = !layoutFinishedFlag
     }
-    
+            
     // MARK: -
     
     override open func _performOrSchedulePublishingChanges(
@@ -668,111 +826,6 @@ open class _PlatformTextView<Label: View>: AppKitOrUIKitTextView, NSLayoutManage
     }
 }
 
-@available(iOS 13.0, macOS 11.0, tvOS 13.0, *)
-extension _PlatformTextView {
-    func _sizeThatFits(
-        proposal: AppKitOrUIKitLayoutSizeProposal
-    ) -> CGSize? {
-        guard let targetWidth = proposal.replacingUnspecifiedDimensions(by: .zero).targetWidth else {
-            assertionFailure()
-            
-            return nil
-        }
-                
-        if let _fixedSize = configuration._fixedSize {
-            if _fixedSize.value == (false, false) {
-                return nil
-            }
-        }
-        
-        if let cached = representableCache.sizeThatFits(proposal: proposal) {
-            return cached
-        } else {
-            assert(proposal.size.maximum == nil)
-            
-            let _sizeThatFits: CGSize? = _uncachedSizeThatFits(for: targetWidth)
-            
-            guard var result: CGSize = _sizeThatFits else {
-                return nil
-            }
-            
-            if !result._hasPlaceholderDimension(.width, for: .textContainer) {
-                var _result = result._filterPlaceholderDimensions(for: .textContainer)
-                
-                if let _fixedSize = configuration._fixedSize {
-                    switch _fixedSize.value {
-                        case (false, false):
-                            if (_result.width ?? 0) < targetWidth {
-                                _result.width = targetWidth
-                            }
-                            
-                            if let targetHeight = proposal.targetHeight, (_result.height ?? 0) < targetHeight {
-                                _result.height = targetHeight
-                            }
-                        case (false, true):
-                            if (_result.width ?? 0) < targetWidth {
-                                if _numberOfLinesOfWrappedTextDisplayed > 1 {
-                                    _result.width = targetWidth
-                                }
-                            }
-                            
-                            if let targetHeight = proposal.targetHeight, (_result.height ?? 0) < targetHeight {
-                                _result.height = targetHeight
-                            }
-                        default:
-                            assertionFailure()
-                            
-                            break
-                    }
-                } else {
-                    _result.width = max(result.width, targetWidth)
-                }
-                
-                guard let _result = CGSize(_result) else {
-                    return nil
-                }
-                                                
-                result = _result
-            } else {
-                guard !targetWidth.isPlaceholderDimension(for: .textContainer) else {
-                    return nil
-                }
-                
-                result.width = targetWidth
-            }
-             
-            representableCache._sizeThatFitsCache[proposal] = result
-
-            return result
-        }
-    }
-    
-    private func _uncachedSizeThatFits(
-        for width: CGFloat
-    ) -> CGSize? {
-        guard let textContainer = _SwiftUIX_textContainer, let layoutManager = _SwiftUIX_layoutManager else {
-            return nil
-        }
-        
-        if
-            !representableCache._sizeThatFitsCache.isEmpty,
-            textContainer.containerSize.width == width,
-            textContainer._hasNormalContainerWidth
-        {
-            let usedRect = layoutManager.usedRect(for: textContainer).size
-
-            /// DO NOT REMOVE.
-            if usedRect.isAreaZero {
-                return _sizeThatFitsWidth(width)
-            }
-            
-            return usedRect
-        } else {
-            return _sizeThatFitsWidth(width)
-        }
-    }
-}
-
 // MARK: - Conformances
 
 @_spi(Internal)
@@ -784,18 +837,6 @@ extension _PlatformTextView: _PlatformTextViewType {
                 self._lazyTextEditorEventSubject?.send(event)
             }
         }
-    }
-}
-
-// MARK: - Helpers
-
-extension NSAttributedString {
-    var _isSingleTextAttachment: Bool {
-        guard length == 1, self.string.first! == Character(UnicodeScalar(NSTextAttachment.character)!) else {
-            return false
-        }
-        
-        return true
     }
 }
 

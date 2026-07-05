@@ -8,6 +8,7 @@ import SwiftUI
 
 /// A property wrapper type that instantiates an observable object.
 @propertyWrapper
+@_documentation(visibility: internal)
 public struct PersistentObject<Value>: DynamicProperty {
     private let thunk: () -> AnyObject?
     
@@ -28,7 +29,7 @@ public struct PersistentObject<Value>: DynamicProperty {
         } nonmutating set {
             _ = foo
             
-            observedObjectContainer.objectWillChange.send()
+            observedObjectContainer._objectWillChange_send()
 
             objectContainer.__unsafe_opaque_base = newValue
             observedObjectContainer.__unsafe_opaque_base = objectContainer.__unsafe_opaque_base
@@ -98,8 +99,11 @@ public struct PersistentObject<Value>: DynamicProperty {
     public mutating func update() {
         _objectContainer.update()
         _observedObjectContainer.update()
+        
+        if objectContainer.__unsafe_opaque_base == nil {
+            _thunkUnconditionally()
+        }
     }
-    
     
     @discardableResult
     private func _thunkUnconditionally() -> Value {
