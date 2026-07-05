@@ -123,6 +123,10 @@ extension _TargetPlatformConditionalModifiable: View where Root: View {
     fileprivate init(@ViewBuilder root: () -> Root)  {
         self.init(root: root())
     }
+
+    fileprivate init(@ViewBuilder viewBuilder: () -> Root)  {
+        self.init(root: viewBuilder())
+    }
 }
 
 @available(macOS 13.0, iOS 14.0, watchOS 8.0, tvOS 14.0, *)
@@ -153,7 +157,7 @@ extension View {
         self
         #endif
     }
-    
+
     public func modify<Modified: View>(
         for platform: _SwiftUI_TargetPlatform.macOS,
         @ViewBuilder modify: (_TargetPlatformConditionalModifiable<Self, _SwiftUI_TargetPlatform.macOS>) -> Modified
@@ -164,7 +168,7 @@ extension View {
         self
         #endif
     }
-    
+
     public func modify<Modified: View>(
         for platform: _SwiftUI_TargetPlatform.tvOS,
         @ViewBuilder modify: (_TargetPlatformConditionalModifiable<Self, _SwiftUI_TargetPlatform.tvOS>) -> Modified
@@ -259,13 +263,13 @@ extension _TargetPlatformConditionalModifiable where Root: View, Platform == _Sw
         _ state: _SwiftUI_TargetPlatform.macOS._ControlActiveState
     ) -> _TargetPlatformConditionalModifiable<some View, Platform> {
         #if os(macOS)
-        _TargetPlatformConditionalModifiable<_, Platform> {
+        _TargetPlatformConditionalModifiable<_, Platform>(viewBuilder: {
             self.environment(\.controlActiveState, .init(state))
-        }
+        })
         #else
-        _TargetPlatformConditionalModifiable<_, Platform> {
+        _TargetPlatformConditionalModifiable<_, Platform>(viewBuilder: {
             self
-        }
+        })
         #endif
     }
 }

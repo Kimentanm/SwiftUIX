@@ -9,7 +9,7 @@ import SwiftUI
 @propertyWrapper
 @_documentation(visibility: internal)
 public struct DelayedState<Value>: DynamicProperty {
-    @inlinable
+
     @State public var _wrappedValue: Value
     
     /// The current state value.
