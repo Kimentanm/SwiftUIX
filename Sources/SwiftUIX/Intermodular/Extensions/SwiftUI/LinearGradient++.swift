@@ -2,10 +2,11 @@
 // Copyright (c) Vatsal Manot
 //
 
-
 import Foundation
+import SwiftUI
 
 extension LinearGradient {
+    @_documentation(visibility: internal)
     public enum _LinearGradientDirection {
         case up
         case down

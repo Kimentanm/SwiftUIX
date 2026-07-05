@@ -7,11 +7,27 @@
 import Swift
 import SwiftUI
 
+// MARK: -
+
 #if os(iOS) || os(tvOS) || os(visionOS)
 
 import UIKit
 
 public typealias AppKitOrUIKitHostingView<Content: View> = UIHostingView<Content>
+
+extension NSTextContainer {
+    public var containerSize: CGSize {
+        get {
+            size
+        } set {
+            size = newValue
+        }
+    }
+}
+
+extension NSTextStorage {
+    public typealias _SwiftUIX_EditActions = EditActions
+}
 
 extension UIColor {
     @_disfavoredOverload
@@ -65,6 +81,8 @@ extension UIUserInterfaceStyle {
 
 #endif
 
+// MARK: -
+
 #if os(macOS)
 
 import AppKit
@@ -73,15 +91,24 @@ public typealias AppKitOrUIKitGraphicsImageRenderer = NSGraphicsImageRenderer
 
 extension NSEdgeInsets {
     public var _SwiftUI_edgeInsets: EdgeInsets {
-        EdgeInsets(top: top, leading: left, bottom: bottom, trailing: right)
+        EdgeInsets(
+            top: top,
+            leading: left,
+            bottom: bottom,
+            trailing: right
+        )
     }
 }
 
 extension NSImage.SymbolConfiguration {
     public convenience init(pointSize: CGFloat) {
-        self.init(pointSize: pointSize, weight: .regular)
+        self.init(
+            pointSize: pointSize,
+            weight: .regular
+        )
     }
 }
+
 extension NSSize {
     public init(_ edgeInsets: EdgeInsets) {
         self.init(
@@ -89,6 +116,10 @@ extension NSSize {
             height: edgeInsets.top + edgeInsets.bottom
         )
     }
+}
+
+extension NSTextStorage {
+    public typealias _SwiftUIX_EditActions = NSTextStorageEditActions
 }
 
 extension NSWindow {
@@ -115,37 +146,23 @@ extension NSWindow {
 
 #endif
 
+// MARK: -
+
 #if targetEnvironment(macCatalyst)
 
-@objc public protocol NSAlertProtocol: NSObjectProtocol {
-    @objc var alertStyle: UInt { get set }
-    @objc var messageText: String { get set }
-    @objc var informativeText: String { get set }
+@available(macCatalyst, unavailable)
+extension NSWindow.Level {
+    public static func + (lhs: Self, rhs: Int) -> Self {
+        Self(rawValue: lhs.rawValue + rhs)
+    }
     
-    @objc func addButton(withTitle: String)
-    @objc func runModal()
-    
-    init()
+    public static func + (lhs: Int, rhs: Self) -> Self {
+        rhs + lhs
+    }
 }
-
-@objc public protocol NSOpenPanelProtocol: NSObjectProtocol {
-    @objc var directoryURL: URL? { get set }
-    @objc var message: String? { get set }
-    @objc var prompt: String? { get set }
-    @objc var allowedFileTypes: [String]? { get set }
-    @objc var allowsOtherFileTypes: Bool { get set }
-    @objc var canChooseDirectories: Bool { get set }
-    @objc var urls: [URL] { get set }
-    
-    @objc func runModal()
-    
-    init()
-}
-
-public let NSAlert_Type = unsafeBitCast(NSClassFromString("NSAlert"), to: NSAlertProtocol.Type.self)
-public let NSOpenPanel_Type = unsafeBitCast(NSClassFromString("NSOpenPanel"), to: NSOpenPanelProtocol.Type.self)
-
 #endif
+
+// MARK: -
 
 #if os(iOS) || os(macOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
 

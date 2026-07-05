@@ -13,6 +13,7 @@ public protocol _AppKitOrUIKitRepresented: AnyObject, AppKitOrUIKitResponder {
     func _performOrSchedulePublishingChanges(_: @escaping () -> Void)
 }
 
+@_documentation(visibility: internal)
 public struct _AppKitOrUIKitRepresentableStateFlags: OptionSet {
     public let rawValue: UInt
     
@@ -22,10 +23,13 @@ public struct _AppKitOrUIKitRepresentableStateFlags: OptionSet {
 
     public static let updateInProgress = Self(rawValue: 1 << 0)
     public static let didUpdateAtLeastOnce = Self(rawValue: 1 << 1)
-    public static let dismantled = Self(rawValue: 1 << 2)
+    public static let sizingInProgress = Self(rawValue: 1 << 2)
+    public static let dismantled = Self(rawValue: 1 << 3)
 }
 
+@_documentation(visibility: internal)
 public struct _AppKitOrUIKitRepresentableCache: ExpressibleByNilLiteral {
+    @_documentation(visibility: internal)
     public enum Attribute {
         case intrinsicContentSize
     }
@@ -45,7 +49,9 @@ public struct _AppKitOrUIKitRepresentableCache: ExpressibleByNilLiteral {
         }
     }
     
-    public func sizeThatFits(proposal: AppKitOrUIKitLayoutSizeProposal) -> CGSize? {
+    public func sizeThatFits(
+        proposal: AppKitOrUIKitLayoutSizeProposal
+    ) -> CGSize? {
         if let result = _sizeThatFitsCache[proposal] {
             return result
         } else if !_sizeThatFitsCache.isEmpty {

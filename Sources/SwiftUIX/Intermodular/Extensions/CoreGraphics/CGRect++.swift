@@ -4,6 +4,7 @@
 
 import CoreGraphics
 import Swift
+import SwiftUI
 
 extension CGRect {
     public var minimumDimensionLength: CGFloat {
@@ -20,6 +21,15 @@ extension CGRect {
         hasher.combine(minY)
         hasher.combine(width)
         hasher.combine(height)
+    }
+}
+
+extension CGRect {
+    public func _SwiftUIX_rounded(_ rule: FloatingPointRoundingRule) -> Self {
+        Self(
+            origin: CGPoint(x: self.origin.x.rounded(rule), y: self.origin.y.rounded(rule)),
+            size: self.size._SwiftUIX_rounded(rule)
+        )
     }
 }
 

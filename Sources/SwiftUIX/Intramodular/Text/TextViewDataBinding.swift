@@ -7,8 +7,11 @@ import SwiftUI
 
 #if os(iOS) || os(macOS) || os(tvOS) || os(visionOS) || targetEnvironment(macCatalyst)
 
+@_documentation(visibility: internal)
 public enum _TextViewDataBinding {
+    @_documentation(visibility: internal)
     public enum Value {
+        @_documentation(visibility: internal)
         public enum Kind {
             case cocoaTextStorage
             case string

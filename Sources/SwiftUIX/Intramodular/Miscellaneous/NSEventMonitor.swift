@@ -10,17 +10,23 @@ import Combine
 import Swift
 import SwiftUI
 
+@_documentation(visibility: internal)
 public enum NSEventMonitorContext {
     case local
     case global
 }
 
-public protocol _NSEventMonitorType {
+public protocol _NSEventMonitorType: AnyObject {
     init(
         context: NSEventMonitorContext,
         matching: NSEvent.EventTypeMask,
         handleEvent: @escaping (NSEvent) -> NSEvent?
     ) throws
+    
+    static func addGlobalMonitorForEvents(
+        matching mask: NSEvent.EventTypeMask,
+        handler block: @escaping (NSEvent) -> Void
+    ) -> Any?
     
     func start() throws
     func stop() throws
@@ -49,8 +55,49 @@ extension _NSEventMonitorType {
             return nil
         }
     }
+    
+    public init(
+        matching shortcuts: [KeyboardShortcut],
+        context: NSEventMonitor.Context = .local,
+        perform action: @escaping (KeyboardShortcut) -> _SwiftUIX_KeyPress.Result
+    ) throws {
+        let shortcuts = Set(shortcuts)
+        
+        try self.init(context: context, matching: [.keyDown]) { event -> NSEvent? in
+            guard let shortcut = KeyboardShortcut(from: event) else {
+                return event
+            }
+            
+            guard shortcuts.contains(shortcut) else {
+                return event
+            }
+            
+            let result = action(shortcut)
+            
+            switch result {
+                case .handled:
+                    return nil
+                case .ignored:
+                    return event
+            }
+        }
+    }
 }
 
+extension _NSEventMonitorType {
+    public static func addGlobalMonitorForEvents(
+        matching mask: NSEvent.EventTypeMask,
+        handler block: @escaping (NSEvent) -> Void
+    ) -> Any? {
+        try? Self(context: .global, matching: mask, handleEvent: { (event: NSEvent) in
+            block(event)
+            
+            return event
+        })
+    }
+}
+
+@_documentation(visibility: internal)
 public final class NSEventMonitor: _NSEventMonitorType {
     public typealias Context = NSEventMonitorContext
     

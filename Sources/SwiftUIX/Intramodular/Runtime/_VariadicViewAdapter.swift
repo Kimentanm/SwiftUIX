@@ -5,6 +5,7 @@
 import SwiftUI
 
 @frozen
+@_documentation(visibility: internal)
 public struct _VariadicViewAdapter<Source: View, Content: View>: View {
     @frozen
     @usableFromInline
@@ -71,6 +72,7 @@ extension _VariadicViewAdapter {
 // MARK: - Internal
 
 @frozen
+@_documentation(visibility: internal)
 public struct _SwiftUI_VariadicView<Content: View>: View {
     public typealias Child = _VariadicViewChildren.Element
     
@@ -110,5 +112,29 @@ extension _SwiftUI_VariadicView {
         trait key: KeyPath<_ViewTraitKeys, Key.Type>
     ) -> Value? where Key.Value == Optional<Value> {
         self[_ViewTraitKeys()[keyPath: key]]
+    }
+}
+
+// MARK: - Supplementary
+
+public struct _Interdivided<Content: View>: View {
+    let content: Content
+    
+    public init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+}
+
+extension _Interdivided {
+    public var body: some View {
+        _VariadicViewAdapter(content) { content in
+            _ForEachSubview(enumerating: content) { (index, subview) in
+                if !(index == 0){
+                    Divider()
+                }
+                
+                subview
+            }
+        }
     }
 }

@@ -50,7 +50,7 @@ private struct AddKeyboardPadding: ViewModifier {
                             padding = keyboardHeight
                         }
                     } else {
-                      padding = max(0, min(CGFloat(UIResponder._SwiftUIX_firstResponder?.globalFrame?.maxY ?? 0.0) - CGFloat((geometry.frame(in: .global).height) - keyboardHeight), keyboardHeight) - geometry.safeAreaInsets.bottom)
+                        padding = max(0, min(CGFloat(UIResponder._SwiftUIX_firstResponder?._SwiftUIX_cocoaGlobalFrame?.maxY ?? 0.0) - CGFloat((geometry.frame(in: .global).height) - keyboardHeight), keyboardHeight) - geometry.safeAreaInsets.bottom)
                     }
                 })
                 .animation(animation, value: contentPadding)
@@ -77,6 +77,7 @@ private struct AddKeyboardPadding: ViewModifier {
 
 // MARK: - API
 
+@_documentation(visibility: internal)
 public enum KeyboardPadding {
     case keyboard
     case keyboardForced // if you don't want this modifier automatically disabled for iOS 14

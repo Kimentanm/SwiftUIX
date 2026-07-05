@@ -6,6 +6,7 @@
 
 import Combine
 import Swift
+import SwiftUI
 @_spi(Internal) import _SwiftUIX
 
 @available(*, deprecated, renamed: "_ObservableTextCursor")
@@ -28,7 +29,7 @@ extension _ObservableTextCursor {
         }
         
         init?(from owner: (any _PlatformTextViewType)) {
-            guard let range = owner._SwiftUIX_selectedTextRange else {
+            guard let range = owner._SwiftUIX_naiveSelectedTextRange else {
                 return nil
             }
             
@@ -48,6 +49,7 @@ extension _ObservableTextCursor {
     }
 }
 
+@_documentation(visibility: internal)
 public final class _ObservableTextCursor: ObservableObject {
     private weak var owner: (any _PlatformTextViewType)?
     
@@ -146,7 +148,7 @@ extension _ObservableTextCursor {
 
 extension AppKitOrUIKitTextView {
     var _caretTextPosition: Int? {
-        guard let selectedTextRange = _SwiftUIX_selectedTextRange else {
+        guard let selectedTextRange = _SwiftUIX_naiveSelectedTextRange else {
             return nil
         }
         

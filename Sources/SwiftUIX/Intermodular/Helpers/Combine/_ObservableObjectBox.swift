@@ -3,9 +3,12 @@
 //
 
 import Combine
+import Foundation
 import Swift
+import SwiftUI
 
 @_spi(Internal)
+@_documentation(visibility: internal)
 public class _AnyObservableObjectMutableBox<WrappedValue>: ObservableObject {
     public var __unsafe_opaque_base: Any? {
         get {
@@ -25,6 +28,7 @@ public class _AnyObservableObjectMutableBox<WrappedValue>: ObservableObject {
 }
 
 @_spi(Internal)
+@_documentation(visibility: internal)
 public final class _ObservableObjectMutableBox<Value, WrappedValue>: _AnyObservableObjectMutableBox<WrappedValue> {
     private var baseSubscription: AnyCancellable?
     
@@ -52,7 +56,7 @@ public final class _ObservableObjectMutableBox<Value, WrappedValue>: _AnyObserva
                 }
             }
 
-            objectWillChange.send()
+            _objectWillChange_send()
         } didSet {
             if _equate(oldValue, base), baseSubscription != nil {
                 return
@@ -275,7 +279,7 @@ public final class _ObservableObjectMutableBox<Value, WrappedValue>: _AnyObserva
                     return
                 }
                 
-                `self`.objectWillChange.send()
+                `self`._objectWillChange_send()
             })
     }
 }
