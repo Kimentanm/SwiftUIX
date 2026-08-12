@@ -8,7 +8,9 @@ import SwiftUI
 /// A corner of a rectangle.
 @_documentation(visibility: internal)
 public enum RectangleCorner: CaseIterable, Hashable, Sendable {
-    public static var allCases: Set<Self> {
+    public typealias AllCases = Set<Self>
+
+    public static var allCases: AllCases {
         [.topLeading, .topTrailing, .bottomLeading, .bottomTrailing]
     }
     

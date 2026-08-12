@@ -57,10 +57,8 @@ public struct _DeferredView<Content: View>: View {
     @usableFromInline
     let content: () -> Content
     
-    @usableFromInline
-    @State var didAppear: Bool = false
-    @usableFromInline
-    @State var didAppear2: Bool = false
+    @State private var didAppear: Bool = false
+    @State private var didAppear2: Bool = false
 
     public init(@ViewBuilder content: @escaping () -> Content) {
         self.content = content

@@ -25,7 +25,6 @@ public enum TransitionDirection: Hashable {
 }
 
 /// A view that paginates its children along a given axis.
-@frozen
 @_documentation(visibility: internal)
 public struct PaginationView<Page: View>: View {
     @usableFromInline
@@ -53,7 +52,6 @@ public struct PaginationView<Page: View>: View {
     @State public var _currentPageIndex = 0
 
     /// Never access this directly, it is marked public as a workaround to a compiler bug.
-    @inlinable
     @DelayedState public var _progressionController: ProgressionController?
 
     private var _scrollViewConfiguration: CocoaScrollViewConfiguration<AnyView> = nil

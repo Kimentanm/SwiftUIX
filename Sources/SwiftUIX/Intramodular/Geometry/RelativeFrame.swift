@@ -216,8 +216,11 @@ struct RelativeFrameModifier: _opaque_FrameModifier, ViewModifier {
     let frame: RelativeFrame
     
     /// The identifier for this relative frame. Required to propagate values via preference keys.
-    @usableFromInline
-    @State var id: AnyHashable = UUID()
+    @State private var id: AnyHashable = UUID()
+
+    init(frame: RelativeFrame) {
+        self.frame = frame
+    }
     
     var resolvedDimensions: OptionalDimensions {
         _relativeFrameResolvedValues.count == 1

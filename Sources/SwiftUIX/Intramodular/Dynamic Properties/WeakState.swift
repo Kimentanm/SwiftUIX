@@ -17,8 +17,7 @@ public struct WeakState<Value: AnyObject>: DynamicProperty {
         }
     }
     
-    @usableFromInline
-    @State var storage: Storage
+    @State private var storage: Storage
 
     @State private var foo: Bool = false
     

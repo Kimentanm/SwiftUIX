@@ -15,14 +15,11 @@ public struct AutomaticAxisStack<Content: View>: View {
     public let spacing: CGFloat?
     public let content: Content
     
-    @usableFromInline
-    @State var intrinsicGeometrySize: CGSize = .zero
+    @State private var intrinsicGeometrySize: CGSize = .zero
     
-    @usableFromInline
-    @State var geometrySize: CGSize = .zero
+    @State private var geometrySize: CGSize = .zero
     
-    @usableFromInline
-    @State var wantsRealign: Bool = false
+    @State private var wantsRealign: Bool = false
     
     public init(
         preferredAxis: Axis,
@@ -36,7 +33,6 @@ public struct AutomaticAxisStack<Content: View>: View {
         self.content = content()
     }
     
-    @inlinable
     public var body: some View {
         PassthroughView {
             if wantsRealign {

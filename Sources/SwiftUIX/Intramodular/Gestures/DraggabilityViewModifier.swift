@@ -13,14 +13,12 @@ public struct DraggabilityViewModifier: ViewModifier {
     @usableFromInline
     let minimumDistance: CGFloat
     
-    @usableFromInline
-    @State var offset = CGPoint(x: 0, y: 0)
+    @State private var offset = CGPoint(x: 0, y: 0)
     
     public init(minimumDistance: CGFloat = 0) {
         self.minimumDistance = minimumDistance
     }
     
-    @inlinable
     public func body(content: Content) -> some View {
         content
             .gesture(

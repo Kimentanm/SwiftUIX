@@ -12,8 +12,7 @@ public struct EnvironmentValueAccessView<Value, Content: View>: View {
     private let keyPath: KeyPath<EnvironmentValues, Value>
     private let content: (Value) -> Content
     
-    @usableFromInline
-    @Environment var environmentValue: Value
+    @Environment private var environmentValue: Value
     
     public init(
         _ keyPath: KeyPath<EnvironmentValues, Value>,
